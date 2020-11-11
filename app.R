@@ -10,12 +10,15 @@ library(dplyr)
 library(RSQLite)
 library(plotly)
 library(broom)
+library(readr)
 
-con <- dbConnect(RSQLite::SQLite(), "covid_zip_0808.db")
-covid <- dbReadTable(con, "covid_addState")
+#con <- dbConnect(RSQLite::SQLite(), "covid_zip_0808.db")
+#covid <- dbReadTable(con, "covid_addState")
+covid<-read_csv('https://raw.githubusercontent.com/YuruHuang/COVID-ZIP/master/covid-data-cleaned.csv')
 covid$collection_date<-as.Date(as.numeric(covid$collection_date),origin="1970-01-01",tz='UTC')
 covid<-covid[!is.na(covid$Cases),]
 covid<-covid[!(covid$State==''|is.na(covid$State)),]
+covid<-covid[,2:5]
 
 zipcodes = unique(covid$ZIP.CODE)
 states = sort(unique(covid$State))[-4]
@@ -24,6 +27,7 @@ covid_map = readRDS('./cases_formap_0809.rds')
 
 ui <- dashboardPage(
     dashboardHeader(title="Covid data by zip code"),
+    
     dashboardSidebar(
         sidebarMenu(
             menuItem("Temporal Trend", icon = icon("bar-chart-o"), tabName = "trend"),
@@ -32,13 +36,17 @@ ui <- dashboardPage(
             selectizeInput(inputId ='state', label='Please select a state',choices = as.list(states),selected='Maryland'),
             selectizeInput(inputId ='zip_code', label='Please select a zip code:',choices = as.list(zipcodes),selected='20878')
         )
-        
     ),
+    
     dashboardBody(
         tabItems(
             tabItem(tabName = 'trend',
-                    box(title = "Trend Graph for the Selected Zip Code", width=7, solidHeader=TRUE,status = "primary", plotlyOutput("trendPlot", height = 500), tags$hr(),"Locally weighted smoothing (LOESS) is used to create the trend line."),
-                    box(title='Case Number by Collection Date', width=5, solidHeader=TRUE,status='warning', dataTableOutput("trendTable"))
+                    fluidRow(
+                      column(6,
+                             box(title = "Trend Graph for the Selected Zip Code", width=12, plotlyOutput("trendPlot", height = 500), tags$hr(),"Locally weighted smoothing (LOESS) is used to create the trend line."),
+                             box(title = "Seven day average", width=12,textOutput("casenumber7"))),
+                      column(6, 
+                             box(title='Case Number by Collection Date', width=12, dataTableOutput("trendTable"))))
             ),
             tabItem(tabName='map',
                     leafletOutput("mymap")),
@@ -53,11 +61,9 @@ ui <- dashboardPage(
                         for websites with ArcGIS map layer, we used ArcGIS query services to query the feature layer; for websites with CSV data files to
                         download, we automated the download process from the websites; for static website tables, we leveraged scrapy or beautifulsoup 
                         packages to harvest the web content; for websites with PDF files, we first downloaded the PDF files and utilized OCR technology
-                        to convert the data into the CSV format. 
-"),
+                        to convert the data into the CSV format."),
                     box(title='Disclaimer',width=12,solidHeader=TRUE,collapsible=TRUE, collapsed = FALSE,
-      "For zip codes with suppressed data, we assume each zip code has 5 cases. Median value is used for range values such as '1-5 cases'. 
-")
+                    "For zip codes with suppressed data, we assume each zip code has 5 cases. Median value is used for range values such as '1-5 cases'.")
                     )
             ))
     )
@@ -66,6 +72,13 @@ server <- function(input, output,session) {
     zipcode_table <- reactive({
         req(input$zip_code)
         covid[covid$ZIP.CODE==input$zip_code,]
+    })
+    
+    output$casenumber7<-renderText({
+      today = Sys.Date()
+      pastseven = today -7
+      cases = as.integer(mean(zipcode_table()[zipcode_table()$collection_date>= (today-7),]$Cases,na.rm=TRUE))
+      paste('The seven day average for zip code ', input$zip_code, ' is ', cases)
     })
     
     output$trendPlot <- renderPlotly({

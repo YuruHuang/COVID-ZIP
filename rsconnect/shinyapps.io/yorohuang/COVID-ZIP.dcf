@@ -1,0 +1,12 @@
+name: COVID-ZIP
+title: COVID-ZIP
+username:
+account: yorohuang
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 3188457
+bundleId: 3834539
+url: https://yorohuang.shinyapps.io/COVID-ZIP/
+when: 1604856189.75435
+asMultiple: FALSE
+asStatic: FALSE
