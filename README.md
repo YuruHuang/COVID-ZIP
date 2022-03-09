@@ -1,2 +1,2 @@
 # COVID-ZIP
-Zip code level COVID case numbers
+A shiny web application showing zip code level COVID case numbers
